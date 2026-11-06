@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Divergence-based classification with tidymodels</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Divergence-based classification with
+tidymodels</h1>
+
+
+
+<p>The divergence-based classifiers of Ferreira, Coelho and Nascimento
+(2021) represent each pixel by the model fitted to its neighbourhood and
+assign it to the class whose model is the closest according to a
+divergence (Kullback-Leibler, Jeffreys, Bhattacharyya or Rényi).
+<code>SITSAR</code> provides them as an R6 class
+(<code>DivergenceClassifier</code>) and as the <code>parsnip</code>
+model <code>divergence_classifier()</code>, so they plug into
+<code>tidymodels</code> workflows.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(SITSAR)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">library</span>(parsnip)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="fu">library</span>(recipes)</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="fu">library</span>(workflows)</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="fu">library</span>(rsample)</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="fu">library</span>(tune)</span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="fu">library</span>(yardstick)</span></code></pre></div>
+<div id="features" class="section level2">
+<h2>Features</h2>
+<p><code>sar_features()</code> computes the local statistics used by
+both engines: the Gaussian features (<code>mean_*</code>,
+<code>cov_*</code>) and the complex Wishart features (<code>c11</code>,
+<code>c12_re</code>, <code>c12_im</code>, …).</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>img <span class="ot">&lt;-</span> SARImage<span class="sc">$</span><span class="fu">new</span>(SanFrancisco150, <span class="at">looks =</span> <span class="dv">4</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>feats <span class="ot">&lt;-</span> <span class="fu">sar_features</span>(img, <span class="at">window =</span> <span class="dv">5</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>feats<span class="sc">$</span>class <span class="ot">&lt;-</span> <span class="fu">factor</span>(<span class="fu">as.vector</span>(SanFrancisco150_gt),</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>                      <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">&quot;ocean&quot;</span>, <span class="st">&quot;vegetation&quot;</span>, <span class="st">&quot;urban&quot;</span>))</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="fu">dim</span>(feats)</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="co">#&gt; [1] 22500    21</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>split <span class="ot">&lt;-</span> <span class="fu">initial_split</span>(feats, <span class="at">prop =</span> <span class="fl">0.02</span>, <span class="at">strata =</span> class)</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>train <span class="ot">&lt;-</span> <span class="fu">training</span>(split)</span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>test <span class="ot">&lt;-</span> <span class="fu">testing</span>(split)</span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="fu">nrow</span>(train)</span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt; [1] 448</span></span></code></pre></div>
+</div>
+<div id="a-parsnip-model" class="section level2">
+<h2>A parsnip model</h2>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>spec <span class="ot">&lt;-</span> <span class="fu">divergence_classifier</span>(<span class="at">divergence =</span> <span class="st">&quot;renyi&quot;</span>, <span class="at">order =</span> <span class="fl">0.5</span>, <span class="at">kind =</span> <span class="dv">3</span>) <span class="sc">|&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="fu">set_engine</span>(<span class="st">&quot;wishart&quot;</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>spec</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="co">#&gt; Divergence Classifier Model Specification (classification)</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co">#&gt; Main Arguments:</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt;   divergence = renyi</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt;   order = 0.5</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt;   kind = 3</span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt; Computational engine: wishart</span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>rec <span class="ot">&lt;-</span> <span class="fu">recipe</span>(class <span class="sc">~</span> ., <span class="at">data =</span> train) <span class="sc">|&gt;</span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a>  <span class="fu">update_role</span>(row, col, <span class="at">new_role =</span> <span class="st">&quot;id&quot;</span>)</span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a>wf <span class="ot">&lt;-</span> <span class="fu">workflow</span>(rec, spec)</span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a>fitted <span class="ot">&lt;-</span> <span class="fu">fit</span>(wf, <span class="at">data =</span> train)</span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a>pred <span class="ot">&lt;-</span> <span class="fu">augment</span>(fitted, test)</span>
+<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="fu">accuracy</span>(pred, <span class="at">truth =</span> class, <span class="at">estimate =</span> .pred_class)</span>
+<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a><span class="co">#&gt; # A tibble: 1 × 3</span></span>
+<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a><span class="co">#&gt;   .metric  .estimator .estimate</span></span>
+<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;    &lt;chr&gt;          &lt;dbl&gt;</span></span>
+<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a><span class="co">#&gt; 1 accuracy multiclass     0.932</span></span>
+<span id="cb3-24"><a href="#cb3-24" tabindex="-1"></a><span class="fu">conf_mat</span>(pred, <span class="at">truth =</span> class, <span class="at">estimate =</span> .pred_class)</span>
+<span id="cb3-25"><a href="#cb3-25" tabindex="-1"></a><span class="co">#&gt;             Truth</span></span>
+<span id="cb3-26"><a href="#cb3-26" tabindex="-1"></a><span class="co">#&gt; Prediction   ocean vegetation urban</span></span>
+<span id="cb3-27"><a href="#cb3-27" tabindex="-1"></a><span class="co">#&gt;   ocean       5802         88     0</span></span>
+<span id="cb3-28"><a href="#cb3-28" tabindex="-1"></a><span class="co">#&gt;   vegetation     7       6207  1385</span></span>
+<span id="cb3-29"><a href="#cb3-29" tabindex="-1"></a><span class="co">#&gt;   urban          0         10  8553</span></span></code></pre></div>
+</div>
+<div id="tuning-the-order-of-the-rényi-divergence" class="section level2">
+<h2>Tuning the order of the Rényi divergence</h2>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>spec_tune <span class="ot">&lt;-</span> <span class="fu">divergence_classifier</span>(<span class="at">divergence =</span> <span class="st">&quot;renyi&quot;</span>, <span class="at">order =</span> <span class="fu">tune</span>()) <span class="sc">|&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="fu">set_engine</span>(<span class="st">&quot;wishart&quot;</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1</span>)</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>folds <span class="ot">&lt;-</span> <span class="fu">vfold_cv</span>(train, <span class="at">v =</span> <span class="dv">3</span>, <span class="at">strata =</span> class)</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">tune_grid</span>(<span class="fu">workflow</span>(rec, spec_tune), <span class="at">resamples =</span> folds,</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>                 <span class="at">grid =</span> <span class="fu">data.frame</span>(<span class="at">order =</span> <span class="fu">c</span>(<span class="fl">0.1</span>, <span class="fl">0.5</span>, <span class="fl">0.9</span>)),</span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>                 <span class="at">metrics =</span> <span class="fu">metric_set</span>(accuracy, kap))</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="fu">collect_metrics</span>(res)</span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co">#&gt; # A tibble: 6 × 7</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co">#&gt;   order .metric  .estimator  mean     n std_err .config        </span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co">#&gt;   &lt;dbl&gt; &lt;chr&gt;    &lt;chr&gt;      &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt; &lt;chr&gt;          </span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">#&gt; 1   0.1 accuracy multiclass 0.866     3 0.0182  pre0_mod1_post0</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="co">#&gt; 2   0.1 kap      multiclass 0.798     3 0.0268  pre0_mod1_post0</span></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="co">#&gt; 3   0.5 accuracy multiclass 0.926     3 0.00815 pre0_mod2_post0</span></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="co">#&gt; 4   0.5 kap      multiclass 0.888     3 0.0123  pre0_mod2_post0</span></span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a><span class="co">#&gt; 5   0.9 accuracy multiclass 0.969     3 0.00427 pre0_mod3_post0</span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a><span class="co">#&gt; 6   0.9 kap      multiclass 0.952     3 0.00643 pre0_mod3_post0</span></span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a>best <span class="ot">&lt;-</span> <span class="fu">select_best</span>(res, <span class="at">metric =</span> <span class="st">&quot;accuracy&quot;</span>)</span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a>best</span>
+<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="co">#&gt; # A tibble: 1 × 2</span></span>
+<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a><span class="co">#&gt;   order .config        </span></span>
+<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a><span class="co">#&gt;   &lt;dbl&gt; &lt;chr&gt;          </span></span>
+<span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a><span class="co">#&gt; 1   0.9 pre0_mod3_post0</span></span></code></pre></div>
+</div>
+<div id="classification-map" class="section level2">
+<h2>Classification map</h2>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>final <span class="ot">&lt;-</span> <span class="fu">finalize_workflow</span>(<span class="fu">workflow</span>(rec, spec_tune), best) <span class="sc">|&gt;</span> <span class="fu">fit</span>(train)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>map <span class="ot">&lt;-</span> <span class="fu">predict</span>(final, feats)<span class="sc">$</span>.pred_class</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="fu">plot_map</span>(<span class="fu">matrix</span>(<span class="fu">as.integer</span>(map), <span class="dv">150</span>), <span class="at">main =</span> <span class="st">&quot;Rényi-Wishart classifier&quot;</span>,</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>         <span class="at">palette =</span> <span class="fu">c</span>(<span class="st">&quot;#1f78b4&quot;</span>, <span class="st">&quot;#33a02c&quot;</span>, <span class="st">&quot;#e31a1c&quot;</span>))</span></code></pre></div>
+<p><img role="img" aria-label src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAYAAAAGACAMAAACTGUWNAAACl1BMVEUAAAABAQECAgIDAwMEBAQFBQUGBgYHBwcICAgJCQkKCgoLCwsMDAwNDQ0ODg4PDw8QEBARERESEhIUFBQVFRUWFhYXFxcYGBgZGRkaGhobGxscHBwdHR0eHh4fHx8feLQgICAhISEiIiIkJCQlJSUmJiYnJycoKCgqKiorKyssLCwtLS0uLi4wMDAxMTEyMjIzoCw0NDQ1NTU2NjY3Nzc4ODg5OTk7Ozs9PT0+Pj4/Pz9AQEBBQUFCQkJDQ0NERERHR0dISEhKSkpLS0tMTExOTk5PT09QUFBRUVFSUlJUVFRVVVVWVlZXV1dYWFhZWVlaWlpbW1tcXFxeXl5fX19hYWFjY2NkZGRlZWVnZ2dpaWlqampra2tsbGxtbW1ubm5vb29wcHBycnJ0dHR1dXV2dnZ3d3d4eHh4rdJ5eXl6enp7e3t8fHx9fX1+fn5/f3+AgICBgYGCgoKDg4OEhISExoCGhoaIiIiJiYmKioqLi4uMjIyPj4+QkJCRkZGSkpKTk5OUlJSVlZWWlpaXl5eYmJiZmZmampqbm5ucnJyfn5+ioqKjo6OkpKSlpaWnp6eoqKiqqqqrq6usrKytra2urq6vr6+wsLCysrKzs7O0tLS1tbW2tra3t7e4uLi6urq7u7u9vb2+vr6/v7/AwMDBwcHCwsLDw8PExMTFxcXGxsbJycnKysrMzMzNzc3Pz8/Q0NDR0dHS0tLT09PX19fZ2dna2trb29vc3Nzd3d3e3t7f39/g4ODh4eHi4uLjGhzj4+Pk5OTm5ubn5+fo6Ojp6enq6urr6+vs7Ozt7e3udXbu7u7v7+/w8PDx8fHy8vLz8/P09PT19fX29vb39/f4+Pj5+fn6+vr7+/v8/Pz9/f3+/v7///8GpEoZAAAACXBIWXMAAA7DAAAOwwHHb6hkAAANZklEQVR4nO2d+4OUVRnHn0VAQFAkaEmCWljZMsPF2igrSaG0LEOKTFQSL1RGVyVMECLYgozELC8heOlCuKBliKHlGiJUCJkBLez5Y3pvu3POe5n3ds55Zub9fn55Z9/3vM855/uZfS8zs7MkACvEPYCqAwHMQAAzEMAMBDADAcxAADMQwAwEMAMBzFgScMPIJXY6ajqMCFhNPpMu3+uvOHj2vJPJza+gMcGjLxL9xFncQ7TUWTxN9FFpY7hxLLuXL99Xr4d6+K02d4ycKR4i2pphDw0YFUA07q/einvnHK7TvBbPNqIvO4vPEM1x9yL6fl4BvUQ76/VQD6/VK2cRtbeAgEW9vZvumU20LEPz7b2bg0dHz6L3O4sZRCP/K8S1RM9KG30MCvC6epLoG2+JA729+zPsoQFTAnrdZR/RR5zF/mtnjZ+zYcB5NJemHVk0bfKn/iI+R/Sks+Jmon1yPB9ykz9MYzpplxCdNHkw2Lj94+3jL1pxRHhZHl8yffKiV53Hgw/MmzK2c+krfuWTXzj30LIOoq4vBcWOLZtzzuylr4tAgNRaqqeWFsu6iDp6hn4DlJG79fVnZVTAS0RXCPHUeO9otHDAncb573Efd5x4hGi5cDO+WHl+fo/oGbGdepbQGnG8ja4LNv7UP6B1HnN/HvUB9/HcAe9c4TLr315ANxEdmu/+3OPX+tt0b+vUI0ERqbVUTyk9RngFKBCgjNyrrz8rkwKO30K0RQx0UVffy87oN7jToAt/vPodRI+cmkidnqG7FQF7iNaJ79BXeuka8Rui+4ON06l9Z98yonvdn+mdG3vfRrRHDIyjmU/8/hqix9zKI2nuwqPyIWgx0Td/d4d3VnGLyK2lekppp6ud3tg9AerI/fraMXsSHrF8UOwg+qUQp6e6R/e51PayEOvIeX4vIdovNhG9oAgYnEyLxQL62XM0Xayhttf8jSeILt4vTt351Qc9AX1CbCT6uTh4/fWPek/hdZ5a71xRE3C0ja50FpfTDL+I1Fqqp5ZWBagjp82xcy2LWQFdTlZrnSn29PRMoBFnnGm0C+/UcLd4gmituNo757oTf+xmhx8JcR3NFlPohdPj6ODnhzc6Ryqi997+9Gnv51GDQjzq/m4J8c9tK64cS3SfG9DZg27XNQF73A6EOHHs2JDiWmupnlJaFaCO3K+vHYNXQRtvHUUTj4vbhq9J33CPpM7mva6A01No/sB5znWmP/GVbgPnhLGV2p6n8wbFh+nhC+mOYKP44zyvwMznhrL8tSdg/Wjnl6wzEHCB13VNwEPuL0mAt5PUWqoXLi0JUEd+gYmkDJ+EP0nOxcx97rEmQBIgbqLRjxO9KFQBR0bQjTRfOJO/sY2eEsPHp5fWXuZcoH9QEfD8CLp0x3/6AgHTvB5qAnYT/dBZDJw86e8kt5bqhUtLAqIjN4BRAd8melA4Kf/KebxlzRZVwC7nF5wucZspV+mX0gT6uhC/oHPpnFPBxj+tWeNcPL46kyYqAjZ5lXvDAnb4hQ47ly/OYj51+DtJraV6kdKSgOjIDWBUwEr3OmZgFs347YE7nfsbVcCge5W42m2mCPiWs/Zh54bUWSwY2ug8mRfs3bdtEl2mCLif6BO7HpjiHeuHAtpM9N03/UpXEa3cvYLoFn8nqbVUL1JavgqKjNwARgXc5V2gPD7WO45+7C1VgLjdWXnAbaYIeMZZ+3dnOZVo/dDGMwv9Q/GoPygCDp3vrpztvXA0FNCu2n3Ai+3+df9xfyeptVQvUloSEB25AYwKcK503u0s/nz1jAmXrHdfjVMEPOvcTXnNFQFnJtFUd3mVd4UabDyxoad99IxP7xXqSbhv3vj33XVoJI14sxbQyreP+2xQ6h83XDSu69Y3hnaSWkv1wqVlAZGRG4Dx/YDXiH7A13ujwCbgf6du8+7Kqg6bgK1t3mVn5WETsG30rMWvc3XeQOA9YWYggBkIYAYCmIEAZiCAGQhgBgKYSRTwtZZhlVb+VSNbY2+xalVuAe9qGbq10l8jW2Nv0d0NARDAgt70ZQU594IACGDBgABPQe59IEAjEJAVA+EXBQKYgQBmIIAZCGAGApiBAGYggBkIYAYCmIEAZqopoIEUQAAzEMBMNQVwpy4BAcxAADMQwEz1BHAnHgICmIEAZiCAGQhgpmICuOOOAgHMQAAzEMBMpQRwhx0HBDBTIQHcUccDAcxURgB30ElAADMQwAwEMAMBzECAVaJ/yAoBVoEAZqJfZwABVmk1AcEkcjRlpV8mWAcBFoEAZlpNgDS1XI3ZiPtOIQiwCAQUzqvINwElllTWQEBKWhCQjDSN7C3zJBWhXPrdrXYfAAHMGBMQn74OD9ECEAABhYGAJqFoTEYUhIEACDCO5vDzKEhvCAEQYBwD8acLyNoQAiDAOMUF1NmcoxIEQAAvEMCMPgHFKkEABPACAcxAADNFBZSIP+6OAgIggIk6+YRfrdEVf5wGCIAAJiCAlbrJFPvXU/HF0prEb4AACDBKSipFI1ejLXPUgoCyQEAyGuJNo/RZGwLKAQH10Jt1MnkEhBtCgAYgIAEDWSeFCgFRCqUYIc8esQ2SdoAACDCMHgFKhsrDdFkQAAF86Ao/Gmx8izgBdbuBAAgwSK74rQlQ9oYACDBGzvitCugOvQgLARCgHwhgRrcA1UJoXYyiPEAABOjHiIA6WiAgBAQwY1GA7AEChoAAToqkUFpAcQUQAAGagQBmiuUAAdqAAGYggBkIYIUpfggYAgJYKZoCBGgCApiBAFZMxx+87izFreFvnCAAAvRQIoP8xxsdf9wXAAEQoAeL6UNAHBDAjL349YUPARCgDwhgxp6AqI8yWiAAAvRgQEA2RRDgAwHMmBKQ2m54KwRAADN6BaTsJz+AAJ8C04cAnRSYPgRoo9j0s33nQ5Yayooc44EACNBD3tDq5WcTCIAAPbAlmE7dgxsEmAcCmIEAZiCAmdYXUDqb4gUydwEB9dIpXiBzF60pQFc20axKVo7rJN4EBEBAYfQlk7hGA/EChjuBAAjIGzYEQEDBblpEgIFklDXe0kg3EJCUjLIGAiCgAQR4Y88moL9gXtE0DN0SQ0CmXLohIBJ2hvS7aweOkgGVKJCnGwgwUCBPN00lwFeQY2LFkym2Z+5uICCpQLE9c3fT4AKig852/VlUQGl1xVD6gwAIgIAGFpBzYgWSsC0g3CMEVEyA22dpAbpisy+A/yrI7RMCGk5Ayifq+/vDA9csoGSdAj1CgFK3ZJ0CPVoTEEQbXSc9qDPc6KAVASWj4z0A+UAABECAKQE6x5mCzphMET9yCLAGq4ACmUIABOiFS4Dp7CEAArJhVUBKrxAAAfaBAGY4BFiKHwIgIAMQwAwEMNOyAlhTzQEEMGNRQEqfFRUgvZEaDBoCLAMBzFgTgHNAdiCAGQhgBgKYMSJguDoEpAIBzBgQEOoBCuoCAcxAADO6BdTpCgLigABmcgtwd8ofvk/TCcg6sRJAQD0aVUDR4ZkS0MwHIQhgppyAnJ2ZE9C8FiCAmTICcmI4/iZVAAHMQAAz1gQkJgYBEMBJbgHFJqszZQiAAI0UF5BrupYENKEJCGCmjIAcU7UtwB9ZeoscFNsrFQjISrG9UoGArBTbK5XSAqQP+2YZfYORLaT0fbIXDTeEgOYXEN+5+nPJnKyS63kT3zDHzhAQoQUEpA6wwQkGbHbYQTIQEAMEVAQIYAYCmDEhoD/+m52NzqNpgQBmygqI/1bhWKzNqemAAGaKC4iPNkFAvIIWFJP7+QYBerEsIGUcFTwQ5Z4kBOgFApixKKBuZ1LiVYq/ABDAjEkB2ZpWHAhgpowAoAEIYMaYAJx1swEBzEAAM2UE1I0Yl/7ZgABmygkomTEMQQA7ZQTgTBuiyDMSAjRiX0DJwUAfBLADAcxAADMQwIwxAf1KvvFvSkIABLBjUoBC/AdJywy9iZGejRDAAYeACscdRvmwGgTYp7EFVODlJQhgBgKYaWwBrUyQgPKZWQiwCLMAEPcn7BBgEWYBCX/VWrxg0wEBzLALiL4kCgEQYBEIYMaYgGiww6vlvqoiwNJfyis9QoCEWQHDMXaHCI0hgchYE+RVBghgpqiAlGghICsQwExuAeECcdGGI08VZXiSjQwEMAMBzGgREL6ej487IWwIgABOSgvwb/yGw1WONjGHG0vTah4ggBkNAkAZIIAZCGAGApiBAGYggBV8MIuZqgpokPsR98YIAhippoAGe/0VApipmACm9x/q9AgBdrpN3AQBdrpN3AQBzEAAM9UQEH63iHs8EhDATFMIiEaWK0S1rVkBuatDgF5aUYDmgwYOQXmBAAgwSPUENBgQwIxtAdnDHG7I9OqNpV4hILH31hXQIF+dFfdBbbV/CDBKNQVknxgEQECrCsjWyuz8Y+tDgNwKAiCgNQVkw6yAhPdlOG64IUBZbazHRBpVgIWroMYAAphpVAHRQ0TTvyYaP3wIsIYmATlSaPLAdBP/DIIAa0AAM/YFAAX75wCgAAGFMH3xBQEpNKmA1vkoSXcNaY2++hCQQsMJAHaAAGYggBkIYAYCmIEAZiCAGQhgBgKYgQBm/g/BY+dUkNqufwAAAABJRU5ErkJggg==" alt style="display: block; margin: auto;" /></p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">kappa_statistics</span>(SanFrancisco150_gt, <span class="fu">matrix</span>(<span class="fu">as.integer</span>(map), <span class="dv">150</span>))</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="co">#&gt; # A tibble: 1 × 5</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="co">#&gt;   kappa   variance std_error overall_accuracy     n</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co">#&gt;   &lt;dbl&gt;      &lt;dbl&gt;     &lt;dbl&gt;            &lt;dbl&gt; &lt;dbl&gt;</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co">#&gt; 1 0.940 0.00000396   0.00199            0.961 22500</span></span></code></pre></div>
+</div>
+<div id="comparing-gaussian-and-wishart-features" class="section level2">
+<h2>Comparing Gaussian and Wishart features</h2>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>grid <span class="ot">&lt;-</span> <span class="fu">expand.grid</span>(<span class="at">engine =</span> <span class="fu">c</span>(<span class="st">&quot;gaussian&quot;</span>, <span class="st">&quot;wishart&quot;</span>),</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>                    <span class="at">divergence =</span> <span class="fu">c</span>(<span class="st">&quot;kl&quot;</span>, <span class="st">&quot;jeffreys&quot;</span>, <span class="st">&quot;bhattacharyya&quot;</span>, <span class="st">&quot;renyi&quot;</span>),</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>                    <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>grid<span class="sc">$</span>accuracy <span class="ot">&lt;-</span> <span class="fu">mapply</span>(<span class="cf">function</span>(eng, dv) {</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>  f <span class="ot">&lt;-</span> <span class="fu">workflow</span>(rec, <span class="fu">divergence_classifier</span>(<span class="at">divergence =</span> dv) <span class="sc">|&gt;</span> <span class="fu">set_engine</span>(eng)) <span class="sc">|&gt;</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>    <span class="fu">fit</span>(train)</span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  <span class="fu">accuracy_vec</span>(test<span class="sc">$</span>class, <span class="fu">predict</span>(f, test)<span class="sc">$</span>.pred_class)</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>}, grid<span class="sc">$</span>engine, grid<span class="sc">$</span>divergence)</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>grid</span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a><span class="co">#&gt;     engine    divergence  accuracy</span></span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a><span class="co">#&gt; 1 gaussian            kl 0.9330673</span></span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a><span class="co">#&gt; 2  wishart            kl 0.9610466</span></span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a><span class="co">#&gt; 3 gaussian      jeffreys 0.8204245</span></span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a><span class="co">#&gt; 4  wishart      jeffreys 0.9336568</span></span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a><span class="co">#&gt; 5 gaussian bhattacharyya 0.8162525</span></span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a><span class="co">#&gt; 6  wishart bhattacharyya 0.9324324</span></span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a><span class="co">#&gt; 7 gaussian         renyi 0.8162525</span></span>
+<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a><span class="co">#&gt; 8  wishart         renyi 0.9324324</span></span></code></pre></div>
+</div>
+<div id="reference" class="section level2">
+<h2>Reference</h2>
+<p>Ferreira, J. A., Coelho, H. and Nascimento, A. D. C. (2021). A family
+of divergence-based classifiers for polarimetric synthetic aperture
+radar (PolSAR) imagery vector and matrix features. <em>International
+Journal of Remote Sensing</em>, 42(4), 1201–1229. <a href="https://doi.org/10.1080/01431161.2020.1826060" class="uri">https://doi.org/10.1080/01431161.2020.1826060</a></p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

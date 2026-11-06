@@ -1,0 +1,53 @@
+Package: SITSAR
+Title: Information Theory, Geometry and Statistics for Synthetic
+        Aperture Radar Data
+Version: 1.0.0
+Authors@R: c(
+    person("Jodavid", "Ferreira", , "jodavid@protonmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-2131-6464")),
+    person("Abraao", "Nascimento", , "abraao@de.ufpe.br", role = "aut",
+           comment = c(ORCID = "0000-0003-2673-219X"))
+  )
+Description: Statistical models, information-theoretic measures and image
+    analysis tools for Synthetic Aperture Radar (SAR) and polarimetric SAR
+    (PolSAR) data. It implements intensity models (Gamma, generalized Gamma
+    and G0I) and matrix models (scaled complex Wishart, G0 polarimetric and
+    the compound truncated Poisson and compound geometric complex Wishart
+    laws), maximum likelihood and expectation-maximization estimation,
+    closed-form Shannon entropies with their asymptotic variances,
+    entropy-based hypothesis tests and change detection, entropy-based
+    image segmentation by (stochastic) expectation-maximization, stochastic
+    distances and a family of divergence-based classifiers (Kullback-Leibler,
+    Jeffreys, Bhattacharyya and Renyi) for Gaussian vector features and
+    complex Wishart matrix features. The main tools are 'R6' classes and the
+    classifiers are available as a 'parsnip' model, so they can be used
+    inside 'tidymodels' workflows. Methods are described in Ferreira,
+    Coelho and Nascimento (2021) <doi:10.1080/01431161.2020.1826060>,
+    Ferreira and Nascimento (2020) <doi:10.1109/JSTARS.2020.2997666>,
+    Ferreira, Nascimento and Frery (2022) <doi:10.3390/rs14205083> and
+    Nascimento, Ferreira and Frery (2023) <doi:10.1007/s11222-023-10298-0>.
+License: MIT + file LICENSE
+URL: https://github.com/jodavid/SITSAR,
+        https://jodavid.github.io/SITSAR/
+BugReports: https://github.com/jodavid/SITSAR/issues
+Depends: R (>= 4.1.0)
+Imports: generics, graphics, grDevices, parsnip (>= 1.0.0), R6 (>=
+        2.5.0), rlang, stats, tibble, utils
+Suggests: dials, knitr, recipes, rmarkdown, rsample, testthat (>=
+        3.0.0), tune, workflows, yardstick
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Encoding: UTF-8
+Language: en-US
+LazyData: true
+LazyDataCompression: xz
+Config/roxygen2/version: 8.1.0
+NeedsCompilation: no
+Packaged: 2026-10-22 21:11:02 UTC; jodavid
+Author: Jodavid Ferreira [aut, cre] (ORCID:
+    <https://orcid.org/0000-0002-2131-6464>),
+  Abraao Nascimento [aut] (ORCID:
+    <https://orcid.org/0000-0003-2673-219X>)
+Maintainer: Jodavid Ferreira <jodavid@protonmail.com>
+Repository: CRAN
+Date/Publication: 2026-11-06 16:20:02 UTC

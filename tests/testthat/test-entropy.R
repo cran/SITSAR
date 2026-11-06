@@ -1,0 +1,46 @@
+test_that("closed-form entropies agree with Monte Carlo", {
+  set.seed(10)
+  z <- rg0i(1e5, -3, 2, 4)
+  expect_equal(entropy_g0i(-3, 2, 4), -mean(dg0i(z, -3, 2, 4, log = TRUE)), tolerance = 0.01)
+  g <- rgammasar(1e5, 2, 4)
+  expect_equal(entropy_gamma(2, 4), -mean(dgammasar(g, 2, 4, log = TRUE)), tolerance = 0.01)
+  gg <- rggamma(1e5, 1.5, 2, 1.2)
+  expect_equal(entropy_ggamma(1.5, 2, 1.2), -mean(dggamma(gg, 1.5, 2, 1.2, log = TRUE)),
+               tolerance = 0.01)
+  S <- polsar_example_sigma("urban")
+  W <- rwishart_sar(20000, S, 5, output = "vec")
+  expect_equal(entropy_wishart(S, 5), -mean(dwishart_sar(W, S, 5, log = TRUE)),
+               tolerance = 0.01)
+})
+
+test_that("entropies of nested models are coherent", {
+  S <- polsar_example_sigma("forest")
+  expect_equal(entropy_g0p(-1e6, S, 4), entropy_wishart(S, 4), tolerance = 1e-4)
+  expect_equal(entropy_g0p(-3, matrix(1 + 0i), 4), entropy_g0i(-3, 2, 4))
+  expect_equal(entropy_wishart(matrix(2 + 0i), 3), entropy_gamma(2, 3))
+  expect_equal(entropy_ggamma(1, 4, 2), entropy_gamma(2, 4))
+  expect_equal(entropy_g0i(-1e6, 1e6, 4), entropy_gamma(1, 4), tolerance = 1e-4)
+})
+
+test_that("entropy maps are computed and finite", {
+  img <- SARImage$new(SanFrancisco150)$crop(1:30, 1:30)
+  Hw <- entropy_map(img, "wishart", window = 5, L = 4)
+  expect_equal(dim(Hw), c(30L, 30L))
+  expect_true(all(is.finite(Hw)))
+  Hw2 <- entropy_map(img, "wishart", window = 5)
+  expect_true(all(is.finite(Hw2)))
+  # the vectorised map matches a fit in a single window
+  fit <- WishartSAR$new()$fit(img$window(10, 12, 5), L = 4)
+  expect_equal(Hw[10, 12], fit$entropy())
+  fit2 <- WishartSAR$new()$fit(img$window(10, 12, 5))
+  expect_equal(Hw2[10, 12], fit2$entropy(), tolerance = 1e-6)
+  Hg <- entropy_map(img, "gamma", window = 5, variance = TRUE)
+  expect_equal(dim(Hg$entropy), c(30L, 30L, 3L))
+  g <- GammaSAR$new()$fit(img$window(7, 8, 5)[, 2])
+  expect_equal(unname(Hg$entropy[7, 8, 2]), g$entropy(), tolerance = 1e-6)
+  expect_equal(unname(Hg$variance[7, 8, 2]), g$entropy_variance(), tolerance = 1e-6)
+  small <- img$crop(1:6, 1:6)
+  Hi <- entropy_map(small, "g0i", window = 5, L = 4, channels = "HH")
+  expect_equal(dim(Hi), c(6L, 6L))
+  expect_true(mean(is.finite(Hi)) > 0.9)
+})

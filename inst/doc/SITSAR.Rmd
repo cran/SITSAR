@@ -1,0 +1,154 @@
+---
+title: "Getting started with SITSAR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with SITSAR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height = 4,
+                      fig.align = "center")
+```
+
+`SITSAR` gathers statistical and information-theoretic tools for Synthetic
+Aperture Radar (SAR) and polarimetric SAR (PolSAR) data. This vignette walks
+through the main building blocks: distributions, R6 models, Shannon
+entropies, image tools, segmentation and change detection.
+
+```{r setup}
+library(SITSAR)
+```
+
+## 1. Distributions
+
+Intensity models (`gamma`, `G0I`, generalized gamma) follow the usual
+`d/p/q/r` convention:
+
+```{r}
+set.seed(1)
+z <- rg0i(5, alpha = -3, gamma = 2, L = 4)
+dg0i(z, alpha = -3, gamma = 2, L = 4)
+pg0i(1, alpha = -3, gamma = 2, L = 4)
+qg0i(0.5, alpha = -3, gamma = 2, L = 4)
+```
+
+Matrix models for PolSAR data work with Hermitian matrices, stored either as
+`m x m x n` complex arrays or as `n x m(m+1)/2` "vec" matrices:
+
+```{r}
+Sigma <- polsar_example_sigma("forest")
+Z <- rwishart_sar(3, Sigma, L = 4)
+dwishart_sar(Z, Sigma, L = 4, log = TRUE)
+dg0p(Z, alpha = -3, Sigma = Sigma, L = 4, log = TRUE)
+dctpcw(Z, lambda = 1.5, Sigma = Sigma, L = 4, log = TRUE)
+```
+
+## 2. R6 models: estimation, entropy and its variance
+
+Each model is an R6 class with the methods `$fit()`, `$density()`,
+`$random()`, `$entropy()` and `$entropy_variance()`:
+
+```{r}
+set.seed(2)
+x <- rg0i(800, alpha = -3, gamma = 2, L = 4)
+m <- G0I$new()$fit(x)          # alpha, gamma and L estimated
+m
+m$entropy_variance()
+generics::tidy(m)
+generics::glance(m)
+```
+
+The closed-form Shannon entropies are also available as functions:
+
+```{r}
+entropy_g0i(alpha = -3, gamma = 2, L = 4)
+entropy_wishart(Sigma, L = 4)
+entropy_g0p(alpha = -3, Sigma = Sigma, L = 4)
+```
+
+The compound truncated Poisson and compound geometric complex Wishart laws
+are fitted by the EM algorithm:
+
+```{r}
+set.seed(3)
+S <- rctpcw(300, lambda = 2, Sigma = Sigma, L = 4)
+cw <- CompoundWishart$new("poisson")$fit(S, L = 4)
+cw$params$lambda
+cw$iterations
+```
+
+## 3. Images
+
+The `SanFrancisco150` dataset is a 150 x 150 crop of an L-band AIRSAR image,
+with the ground truth `SanFrancisco150_gt` (ocean, vegetation and urban).
+
+```{r, fig.show = "hold", out.width = "48%", fig.width = 4, fig.height = 4}
+img <- SARImage$new(SanFrancisco150, looks = 4)
+img
+img$plot()
+plot_map(SanFrancisco150_gt, main = "Ground truth",
+         palette = c("#1f78b4", "#33a02c", "#e31a1c"))
+```
+
+## 4. Entropy maps
+
+`entropy_map()` estimates the model in a moving window centred at each pixel
+and returns the map of Shannon entropies. The Gamma and Wishart maps are
+fully vectorised:
+
+```{r, fig.show = "hold", out.width = "48%", fig.width = 4, fig.height = 4}
+Hw <- entropy_map(img, model = "wishart", window = 7, L = 4)
+plot_map(Hw, main = "Wishart entropy (L = 4)")
+Hhv <- entropy_map(img, model = "gamma", window = 7, channels = "HV")
+plot_map(Hhv, main = "Gamma entropy, HV (L estimated)")
+```
+
+## 5. Entropy-based segmentation
+
+Entropies are asymptotically Gaussian, so the entropy map is segmented with a
+Gaussian mixture fitted by EM (or stochastic EM):
+
+```{r, fig.width = 4, fig.height = 4}
+set.seed(4)
+seg <- EntropySegmenter$new(k = 3, method = "em")$fit(Hw)
+seg
+plot_map(seg$label_map(), main = "Segmentation (Wishart entropy)",
+         palette = c("#1f78b4", "#33a02c", "#e31a1c"))
+kappa_statistics(SanFrancisco150_gt, seg$label_map(), match = TRUE)
+```
+
+## 6. Hypothesis tests and change detection
+
+`entropy_test()` compares two samples through their entropies:
+
+```{r}
+set.seed(5)
+entropy_test(rg0i(300, -3, 2, 4), rg0i(300, -1.5, 1, 4), model = "g0i", L = 4)
+```
+
+and `change_map()` applies the test pixel by pixel to two co-registered
+images:
+
+```{r, fig.width = 4, fig.height = 4}
+set.seed(6)
+a <- matrix(rgammasar(60 * 60, mu = 1, L = 4), 60)
+b <- matrix(rgammasar(60 * 60, mu = 1, L = 4), 60)
+b[21:40, 21:45] <- rgammasar(500, mu = 3, L = 4)
+cd <- change_map(a, b, model = "gamma", window = 5, L = 4, level = 0.01)
+cd
+plot_map(cd$change, main = "Detected changes")
+truth <- matrix(FALSE, 60, 60); truth[21:40, 21:45] <- TRUE
+change_detection_metrics(truth, cd$change)
+```
+
+## 7. Divergences and classification
+
+Divergences between fitted models are the core of the divergence-based
+classifiers; see `vignette("tidymodels", package = "SITSAR")`.
+
+```{r}
+divergence_wishart(polsar_example_sigma("forest"), polsar_example_sigma("urban"),
+                   L = 4, type = "renyi", order = 0.5, kind = 3)
+```
